@@ -28,6 +28,7 @@ int handle_too_long_cmd(char* cmd_buff) { //return 1 if the command line is too 
         rais_err();
         myPrint(cmd_buff);
         while (too_long(cmd_buff)) {
+            memset(cmd_buff, '\0', (MAX_BYTE + 1));
             fgets(cmd_buff, (MAX_BYTE + 1), stdin);
             myPrint(cmd_buff);
         }
@@ -99,7 +100,10 @@ int main(int argc, char *argv[])
             printf("cmd we got is %s\n", cmd_list[i]);
             char** arg_list = create_arg_list(cmd_list[i]);
             printf("first and second arg we got is %s %s\n", arg_list[0], arg_list[1]);
+
+
         }
+        memset(cmd_buff, '\0', (MAX_BYTE + 1));
     }
 }
 
