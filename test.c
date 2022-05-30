@@ -7,6 +7,8 @@
 int num_arg; //num of argument
 int num_cmd;
 int MAX_BYTE = 5;
+char* exit_str = "exit\0";
+
 
 void myPrint(char *msg)
 {
@@ -108,19 +110,15 @@ char** create_arg_list(char* single_cmd) {
 
 
 int handle_built_in_command(char** arg_list) {
-    char* exit_str = "exit\0";
     char* cd_str = "cd\0";
     char* pwd_str = "pwd\0";
     int i = 0;
-    if ( !(strncmp((const char *)arg_list[0], exit_str, sizeof(arg_list[0]))))  { //exit
-        i++;
-        printf("exit %d\n", i);
-        exit(0);
-    } else if (!(strncmp((const char *)arg_list[0], pwd_str, sizeof(arg_list[0])))) { //pwd
+    if (!(strncmp((const char *)arg_list[0], pwd_str, sizeof(arg_list[0])))) { //pwd
         char buff[PATH_MAX];
         getcwd(buff, sizeof(buff));
         myPrint("pwd\n");
         myPrint(buff);
+        myPrint("\n");
     } else if (!(strncmp((const char *)arg_list[0], cd_str, sizeof(arg_list[0])))){ //cd
         myPrint("cd\n");
     } else {
@@ -134,9 +132,10 @@ void execute_command(char** arg_list) { //execute a single command
     int status;
     pid = fork();
     int system_call = handle_built_in_command(arg_list);
-    if (system_call)
+    if (system_call) {
         printf("already handle this system call if 1: %d\n", system_call);
         return;
+    }
     if (pid == 0) { //child
         printf("enter child process\n");
         execvp(arg_list[0], arg_list);
@@ -168,7 +167,13 @@ int main(int argc, char *argv[])
             printf("cmd we got is %s\n", cmd_list[i]);
             char** arg_list = create_arg_list(cmd_list[i]);
             printf("first and second arg we got is %s %s\n", arg_list[0], arg_list[1]);
-            execute_command(arg_list);
+
+            if ( !(strncmp((const char *)arg_list[0], exit_str, sizeof(arg_list[0]))))  { //exit
+                myPrint("time to exit\n");
+                exit(0);
+            } else {
+                execute_command(arg_list);
+            }
             free(arg_list);
         }
         free(cmd_list);
