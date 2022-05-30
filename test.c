@@ -6,8 +6,12 @@
 #include <limits.h>
 int num_arg; //num of argument
 int num_cmd;
-int MAX_BYTE = 5;
+int MAX_BYTE = 513;
 char* exit_str = "exit\0";
+char* cd_str = "cd";
+char* pwd_str = "pwd\0";
+int last_empty = 0; //prevent multple myshell>>
+
 
 
 void myPrint(char *msg)
@@ -16,12 +20,13 @@ void myPrint(char *msg)
 }
 
 void rais_err() {
-    char error_message[30] = "An error has occurred\n";
+    char error_message[30] = "An error has occurred";
     write(STDOUT_FILENO, error_message, strlen(error_message));
 }
 
 int too_long(char* cmd_buff) { //check if the line is too long
     int too_long = 1;
+    //printf("cmd_buff[MAX_BYTE - 1] is %d\n", cmd_buff[MAX_BYTE - 1]);
     if ((cmd_buff[MAX_BYTE - 1] == '\0') || (cmd_buff[MAX_BYTE - 1] == '\n'))
         too_long = 0; 
     return too_long;
@@ -63,10 +68,10 @@ char** create_cmd_list(char* cmd_buff) {
         //deal with empty string
         if (empty_space(token)) {
             token = strtok(NULL, s);
-            printf("%s\n", token);
+            //printf("%s\n", token);
             continue; //jump directly to next loop
         }
-        printf("token in cmd list separated by ; is %s\n", token);
+        //printf("token in cmd list separated by ; is %s\n", token);
         cmd_buffer[num_cmd] = token;
         num_cmd++;
         token = strtok(NULL, s);
@@ -75,6 +80,8 @@ char** create_cmd_list(char* cmd_buff) {
     for (int i = 0; i < num_cmd; i++) {
         cmd_list[i] = cmd_buffer[i];
     }
+    if (num_cmd == 0)
+        last_empty = 1;
     return cmd_list;
 }
 
@@ -87,7 +94,7 @@ char** create_arg_list(char* single_cmd) {
     char* token;
     token = strtok(single_cmd, s);
     while (token != NULL) {
-        printf("token in a single command is %s\n", token);
+        //printf("token in a single command is %s\n", token);
         if (empty_space(token)) {
             token = strtok(NULL, s);
             continue; //jump directly to next loop
@@ -108,39 +115,74 @@ char** create_arg_list(char* single_cmd) {
     return arg_list;
 }
 
+//preprocessing with string
+//normally, return 1 if two string are the same, 0 if not
+//in cd's case, return 1 if str1 is cd exactly, return 2 if str1 is cdxxx
+int same_str(char* str1, char* str2) {
+    if (!(strncmp((const char *)str2, cd_str, sizeof(str2)))) { //str2 is cd
+        if (!( strncmp((const char *)str1, (const char *)str2, sizeof(str1)) )) {//this IS CD
+            return 2;
+        } else if (!( strncmp((const char *)str1, (const char *)str2, 2) )) { //cd sth
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+    if (!(strncmp((const char *)str1, (const char *)str2, sizeof(str1)))) //two string the same
+        return 1;
+    return 0;
+}
 
-int handle_built_in_command(char** arg_list) {
-    char* cd_str = "cd\0";
-    char* pwd_str = "pwd\0";
+int handle_cd(char** arg_list) {
+    char* path;
     int i = 0;
-    if (!(strncmp((const char *)arg_list[0], pwd_str, sizeof(arg_list[0])))) { //pwd
-        char buff[PATH_MAX];
-        getcwd(buff, sizeof(buff));
-        myPrint("pwd\n");
-        myPrint(buff);
-        myPrint("\n");
-    } else if (!(strncmp((const char *)arg_list[0], cd_str, sizeof(arg_list[0])))){ //cd
-        myPrint("cd\n");
-    } else {
-        return 0; //not system call
-    } 
-    return 1;
+    if (!same_str(arg_list[0], cd_str)) //not cd
+        return 0;
+
+    if (arg_list[1] == NULL) { //argv[1] is empty
+        if (same_str(arg_list[0], cd_str) == 2){ //only a single cd, change to main
+            myPrint("cd\n");
+            chdir(getenv("HOME"));
+            return 1;
+        }
+        else { //cdxx, extract xx
+            path = arg_list[0] + 2;
+            }
+    } else { //path in arg_list[1]
+        path = arg_list[1];
+    }
+    myPrint("cd ");
+    myPrint(path);
+    myPrint("\n");
+    chdir(path);
+    return 1; 
 }
 
 void execute_command(char** arg_list) { //execute a single command
     pid_t pid;
     int status;
     pid = fork();
-    int system_call = handle_built_in_command(arg_list);
-    if (system_call) {
-        printf("already handle this system call if 1: %d\n", system_call);
+
+    int cd = handle_cd(arg_list);
+    if (cd) {
+        //printf("already handle this system call if 1: %d\n", system_call);
         return;
     }
+
     if (pid == 0) { //child
         printf("enter child process\n");
-        execvp(arg_list[0], arg_list);
+        if (same_str(arg_list[0], pwd_str)) { //pwd
+            char buff[PATH_MAX];
+            getcwd(buff, sizeof(buff));
+            myPrint("pwd\n");
+            myPrint(buff);
+            myPrint("\n");
+        } else {
+            execvp(arg_list[0], arg_list);
+        }
+        exit(0);
     } else {
-        wait(&status);
+        waitpid(pid, &status, 0);
         printf("Child exited\n");
     }
     return;
@@ -151,32 +193,34 @@ int main(int argc, char *argv[])
     char cmd_buff[MAX_BYTE + 1]; //initiate
     char *pinput;
     while (1) {
-        myPrint("myshell> ");
-        if (fgets(cmd_buff, (MAX_BYTE + 1), stdin) == NULL)
+        if (!last_empty) 
+            myPrint("myshell> ");
+        memset(cmd_buff, '\0', (MAX_BYTE + 1));
+        if (fgets(cmd_buff, (MAX_BYTE + 1), stdin) == NULL) {
             break;
+        }
 
-
-        printf("\ncmd_buff: %c, %c, %c, %c, %c, %c\n", cmd_buff[0], cmd_buff[1], cmd_buff[2], cmd_buff[3], cmd_buff[4], cmd_buff[5]);
-        printf("\ncmd_buff: %d, %d, %d, %d, %d, %d\n", cmd_buff[0], cmd_buff[1], cmd_buff[2], cmd_buff[3], cmd_buff[4], cmd_buff[5]);
+        //printf("\ncmd_buff: %c, %c, %c, %c, %c, %c\n", cmd_buff[0], cmd_buff[1], cmd_buff[2], cmd_buff[3], cmd_buff[4], cmd_buff[5]);
+        //printf("\ncmd_buff: %d, %d, %d, %d, %d, %d\n", cmd_buff[0], cmd_buff[1], cmd_buff[2], cmd_buff[3], cmd_buff[4], cmd_buff[5]);
     
-        if (handle_too_long_cmd(cmd_buff))
+        if (handle_too_long_cmd(cmd_buff)) {//too long
+            last_empty = 1;
             continue;
-        
+        }
         char** cmd_list = create_cmd_list(cmd_buff);
         for (int i = 0; i < num_cmd; i++) {
-            printf("cmd we got is %s\n", cmd_list[i]);
+            //printf("cmd we got is %s\n", cmd_list[i]);
             char** arg_list = create_arg_list(cmd_list[i]);
-            printf("first and second arg we got is %s %s\n", arg_list[0], arg_list[1]);
-
-            if ( !(strncmp((const char *)arg_list[0], exit_str, sizeof(arg_list[0]))))  { //exit
-                myPrint("time to exit\n");
+            //printf("first and second arg we got is %s %s\n", arg_list[0], arg_list[1]);
+            if (same_str(arg_list[0], exit_str))  { //exit
+                myPrint("exit\n");
                 exit(0);
             } else {
+                last_empty = 0;
                 execute_command(arg_list);
             }
             free(arg_list);
         }
         free(cmd_list);
-        memset(cmd_buff, '\0', (MAX_BYTE + 1));
     }
 }
