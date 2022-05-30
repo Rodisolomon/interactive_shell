@@ -3,13 +3,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
 int num_arg; //num of argument
 int num_cmd;
 int MAX_BYTE = 5;
+
 void myPrint(char *msg)
 {
     write(STDOUT_FILENO, msg, strlen(msg));
 }
+
 void rais_err() {
     char error_message[30] = "An error has occurred\n";
     write(STDOUT_FILENO, error_message, strlen(error_message));
@@ -39,11 +42,12 @@ int handle_too_long_cmd(char* cmd_buff) { //return 1 if the command line is too 
 
 int empty_space(char* token) { //return 1 if the string is meaningless
     while (*token != '\0') {
-        if (!isspace((char)*token))
-            return 1;
+        if ( !( isspace((char)*token) ) ) {
+            return 0;
+        }
         token++;
     }
-    return 0;
+    return 1;
 }
 
 char** create_cmd_list(char* cmd_buff) {
@@ -55,8 +59,11 @@ char** create_cmd_list(char* cmd_buff) {
     token = strtok(cmd_buff, s);
     while (token != NULL) {
         //deal with empty string
-        if (empty_space(token))
+        if (empty_space(token)) {
+            token = strtok(NULL, s);
+            printf("%s\n", token);
             continue; //jump directly to next loop
+        }
         printf("token in cmd list separated by ; is %s\n", token);
         cmd_buffer[num_cmd] = token;
         num_cmd++;
@@ -78,7 +85,14 @@ char** create_arg_list(char* single_cmd) {
     char* token;
     token = strtok(single_cmd, s);
     while (token != NULL) {
-        printf("token in a single commad is %s\n", token);
+        printf("token in a single command is %s\n", token);
+        if (empty_space(token)) {
+            token = strtok(NULL, s);
+            continue; //jump directly to next loop
+        }
+        if (token[strlen(token) - 1] == '\n') { //deal with newline character
+            token[strlen(token) - 1] = '\0';
+        }
         arg_buffer[num_arg] = token;
         num_arg++;
         token = strtok(NULL, s);
@@ -93,11 +107,50 @@ char** create_arg_list(char* single_cmd) {
 }
 
 
+int handle_built_in_command(char** arg_list) {
+    char* exit_str = "exit\0";
+    char* cd_str = "cd\0";
+    char* pwd_str = "pwd\0";
+    int i = 0;
+    if ( !(strncmp((const char *)arg_list[0], exit_str, sizeof(arg_list[0]))))  { //exit
+        i++;
+        printf("exit %d\n", i);
+        exit(0);
+    } else if (!(strncmp((const char *)arg_list[0], pwd_str, sizeof(arg_list[0])))) { //pwd
+        char buff[PATH_MAX];
+        getcwd(buff, sizeof(buff));
+        myPrint("pwd\n");
+        myPrint(buff);
+    } else if (!(strncmp((const char *)arg_list[0], cd_str, sizeof(arg_list[0])))){ //cd
+        myPrint("cd\n");
+    } else {
+        return 0; //not system call
+    } 
+    return 1;
+}
+
+void execute_command(char** arg_list) { //execute a single command
+    pid_t pid;
+    int status;
+    pid = fork();
+    int system_call = handle_built_in_command(arg_list);
+    if (system_call)
+        printf("already handle this system call if 1: %d\n", system_call);
+        return;
+    if (pid == 0) { //child
+        printf("enter child process\n");
+        execvp(arg_list[0], arg_list);
+    } else {
+        wait(&status);
+        printf("Child exited\n");
+    }
+    return;
+}
+
 int main(int argc, char *argv[]) 
 {
     char cmd_buff[MAX_BYTE + 1]; //initiate
     char *pinput;
-
     while (1) {
         myPrint("myshell> ");
         if (fgets(cmd_buff, (MAX_BYTE + 1), stdin) == NULL)
@@ -115,8 +168,10 @@ int main(int argc, char *argv[])
             printf("cmd we got is %s\n", cmd_list[i]);
             char** arg_list = create_arg_list(cmd_list[i]);
             printf("first and second arg we got is %s %s\n", arg_list[0], arg_list[1]);
+            execute_command(arg_list);
+            free(arg_list);
         }
+        free(cmd_list);
         memset(cmd_buff, '\0', (MAX_BYTE + 1));
     }
 }
-
