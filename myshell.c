@@ -14,6 +14,8 @@ int MAX_BYTE = 513;
 char* exit_str = "exit\0";
 char* cd_str = "cd\0";
 char* pwd_str = "pwd\0";
+char* rd_sign = ">";
+char* advrd_sign = ">+";
 int last_empty = 0; //prevent multple myshell>>
 
 
@@ -98,9 +100,45 @@ char** create_cmd_list(char* cmd_buff) {
 }
 
 
+char *trimwhitespace(char *str)
+{
+  char *end;
+
+  // Trim leading space
+  while(isspace((unsigned char)*str)) str++;
+
+  if(*str == 0)  // All spaces?
+    return str;
+
+  // Trim trailing space
+  end = str + strlen(str) - 1;
+  while(end > str && isspace((unsigned char)*end)) end--;
+
+  // Write new null terminator character
+  end[1] = '\0';
+
+  return str;
+}
+
+char* remove_white_space(char* single_cmd) {
+    while(isspace((char)*single_cmd)) {
+        single_cmd++;
+    }
+    if (*single_cmd == 0)
+        return single_cmd;
+    char* end;
+    end = single_cmd - 1 + strlen(single_cmd);
+    while(isspace((char)*end) && (end > single_cmd)) {
+        end--;
+    }
+    end[1] = '\0';
+    return single_cmd;
+}
+
 char** create_arg_list(char* single_cmd) {
     //separate argument, create argument list for execvp
     num_arg = 0;
+    single_cmd = remove_white_space(single_cmd);
     char* arg_buffer[20]; //a buffer to hold all arguments
 
     const char s[2] = " ";
@@ -127,6 +165,11 @@ char** create_arg_list(char* single_cmd) {
     arg_list[num_arg] = NULL;
     return arg_list;
 }
+
+char** preprocess_redirect() {
+    return 0;
+}
+
 
 //preprocessing with string
 //normally, return 1 if two string are the same, 0 if not
@@ -169,9 +212,49 @@ int handle_cd(char** arg_list, char** path) {
 //determine if is a valid redirection, return 0 if sth wrong, return 1 if is valid redirection, 2 if advanced redirection
 //arg will be altered if 1 and 2
 //sth wrong: 
-//int redirection_sign(char** arg_list) {
+int redirection_sign(char* cmd) {//return 1 if >; 2 if >+; 0 if no
+    if (strstr(cmd, advrd_sign) != NULL) {
+        return 2;
+    }
+    else if (strstr(cmd, rd_sign) != NULL) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
 
-//}
+int multiple_rdsign(char* cmd, char* checked_sign) { //return 1 if multiple signs
+    int count = 0;
+    const char *new = cmd;
+    while(new = strstr(new, (const char*)checked_sign)) {
+        count++;
+        new++;
+    }
+    if (count > 1)
+        return 1;
+    return 0;
+}
+
+
+int multiple_rd(char* cmd) {
+    char* block1;
+    char* block2;
+    int num_block = 0;
+    char* block_buffer[520];
+    if (redirection_sign(cmd) == 2) {
+        const char s[2] = ">+";
+        if ( multiple_rdsign(cmd, s) )
+            return 1;
+        return 0;   
+    } else if (redirection_sign(cmd) == 1) { //== 1
+        const char s[2] = ">";
+        if ( multiple_rdsign(cmd, s) )
+            return 1;
+    } 
+    return 0;
+}
+
+
 
 //return 1 if wrong format of built in: exit >xxx pwd etc.
 //will print err if wrong format
@@ -259,10 +342,7 @@ int main(int argc, char *argv[])
             break;
         }
 
-        //printf("\ncmd_buff: %c, %c, %c, %c, %c, %c\n", cmd_buff[0], cmd_buff[1], cmd_buff[2], cmd_buff[3], cmd_buff[4], cmd_buff[5]);
-        //printf("\ncmd_buff: %d, %d, %d, %d, %d, %d\n", cmd_buff[0], cmd_buff[1], cmd_buff[2], cmd_buff[3], cmd_buff[4], cmd_buff[5]);
-    
-        if (handle_too_long_cmd(cmd_buff, fp)) {//too long
+        if (handle_too_long_cmd(cmd_buff, fp)) {//handle too long
             rais_err();
             last_empty = 1;
             continue;
@@ -272,9 +352,20 @@ int main(int argc, char *argv[])
         for (int i = 0; i < num_cmd; i++) {
             int cd;
             char* path;
-            //printf("cmd we got is %s\n", cmd_list[i]);
+
+            ///handle redirection ////
+            int rd_sign = redirection_sign(cmd_list[i]);
+
+
+
+
+
+
             char** arg_list = create_arg_list(cmd_list[i]);
-            //printf("first and second arg we got is %s, %s\n", arg_list[0], arg_list[1]);
+
+            printf("cmd we got is %s\n", cmd_list[i]);
+            printf("first and second arg we got is %s, %s\n", arg_list[0], arg_list[1]);
+
             if (same_str(arg_list[0], exit_str))  { //exit
                 if (wrong_builtin(arg_list))
                     continue;
