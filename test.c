@@ -4,6 +4,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include <sys/stat.h>
+
 int num_arg; //num of argument
 int num_cmd;
 int MAX_BYTE = 513;
@@ -20,7 +22,7 @@ void myPrint(char *msg)
 }
 
 void rais_err() {
-    char error_message[30] = "An error has occurred";
+    char error_message[30] = "An error has occurred\n";
     write(STDOUT_FILENO, error_message, strlen(error_message));
 }
 
@@ -32,15 +34,14 @@ int too_long(char* cmd_buff) { //check if the line is too long
     return too_long;
 }
 
-int handle_too_long_cmd(char* cmd_buff) { //return 1 if the command line is too long, handle too-long-cmd
+int handle_too_long_cmd(char* cmd_buff, FILE * fp) { //return 1 if the command line is too long, handle too-long-cmd
     int too_long_command = 0;
     if (too_long(cmd_buff)) {
         too_long_command = 1;
-        rais_err();
         myPrint(cmd_buff);
         while (too_long(cmd_buff)) {
             memset(cmd_buff, '\0', (MAX_BYTE + 1));
-            fgets(cmd_buff, (MAX_BYTE + 1), stdin);
+            fgets(cmd_buff, (MAX_BYTE + 1), fp);
             myPrint(cmd_buff);
         }
     }
@@ -133,44 +134,30 @@ int same_str(char* str1, char* str2) {
     return 0;
 }
 
-int handle_cd(char** arg_list) {
-    char* path;
+int handle_cd(char** arg_list, char** path) {
     int i = 0;
     if (!same_str(arg_list[0], cd_str)) //not cd
         return 0;
 
     if (arg_list[1] == NULL) { //argv[1] is empty
         if (same_str(arg_list[0], cd_str) == 2){ //only a single cd, change to main
-            myPrint("cd\n");
-            chdir(getenv("HOME"));
             return 1;
         }
         else { //cdxx, extract xx
-            path = arg_list[0] + 2;
+            *path = arg_list[0] + 2;
             }
     } else { //path in arg_list[1]
-        path = arg_list[1];
+        *path = arg_list[1];
     }
-    myPrint("cd ");
-    myPrint(path);
-    myPrint("\n");
-    chdir(path);
-    return 1; 
+    return 2; 
 }
 
-void execute_command(char** arg_list) { //execute a single command
+void execute_command(char** arg_list, char* a_cmd) { //execute a single command
     pid_t pid;
     int status;
     pid = fork();
-
-    int cd = handle_cd(arg_list);
-    if (cd) {
-        //printf("already handle this system call if 1: %d\n", system_call);
-        return;
-    }
-
     if (pid == 0) { //child
-        printf("enter child process\n");
+        //printf("enter child process\n");
         if (same_str(arg_list[0], pwd_str)) { //pwd
             char buff[PATH_MAX];
             getcwd(buff, sizeof(buff));
@@ -178,49 +165,92 @@ void execute_command(char** arg_list) { //execute a single command
             myPrint(buff);
             myPrint("\n");
         } else {
+            myPrint(a_cmd);
+            myPrint("\n");
             execvp(arg_list[0], arg_list);
         }
         exit(0);
     } else {
         waitpid(pid, &status, 0);
-        printf("Child exited\n");
+        //printf("Child exited\n");
     }
     return;
 }
 
+int dir_x_exit(char* path) { //return 1 if a directory doesn't exist
+    struct stat s;
+    if (!stat(path, &s))
+        return 0;
+    return 1;
+}
+
+
+
+
 int main(int argc, char *argv[]) 
 {
+    int batch_mode = 0;
+    FILE * fp = stdin;
+    if (argc != 1) { //should be in batch mode
+        batch_mode = 1;
+        fp = fopen(argv[1], "r");
+        if (fp == NULL) {
+            rais_err();
+            exit(0);
+        }
+    }
+    
     char cmd_buff[MAX_BYTE + 1]; //initiate
     char *pinput;
     while (1) {
-        if (!last_empty) 
+        if (!batch_mode) 
             myPrint("myshell> ");
         memset(cmd_buff, '\0', (MAX_BYTE + 1));
-        if (fgets(cmd_buff, (MAX_BYTE + 1), stdin) == NULL) {
+        if (fgets(cmd_buff, (MAX_BYTE + 1), fp) == NULL) {
             break;
         }
 
         //printf("\ncmd_buff: %c, %c, %c, %c, %c, %c\n", cmd_buff[0], cmd_buff[1], cmd_buff[2], cmd_buff[3], cmd_buff[4], cmd_buff[5]);
         //printf("\ncmd_buff: %d, %d, %d, %d, %d, %d\n", cmd_buff[0], cmd_buff[1], cmd_buff[2], cmd_buff[3], cmd_buff[4], cmd_buff[5]);
     
-        if (handle_too_long_cmd(cmd_buff)) {//too long
+        if (handle_too_long_cmd(cmd_buff, fp)) {//too long
+            rais_err();
             last_empty = 1;
             continue;
         }
+
         char** cmd_list = create_cmd_list(cmd_buff);
         for (int i = 0; i < num_cmd; i++) {
+            int cd;
+            char* path;
             //printf("cmd we got is %s\n", cmd_list[i]);
             char** arg_list = create_arg_list(cmd_list[i]);
             //printf("first and second arg we got is %s %s\n", arg_list[0], arg_list[1]);
             if (same_str(arg_list[0], exit_str))  { //exit
                 myPrint("exit\n");
                 exit(0);
-            } else {
+            } else if (cd == handle_cd(arg_list, &path)) { //cd
+                if (cd == 1) { //only a single cd, change to main
+                    myPrint("cd\n");
+                    chdir(getenv("HOME"));
+                } else {
+                    myPrint("cd ");
+                    myPrint(path);
+                    myPrint("\n");
+                    if (dir_x_exit(path)) { //check if directory exist;
+                        rais_err();
+                        continue;
+                    } else {
+                        chdir(path);
+                    }
+                }
+            } else { //normal command
                 last_empty = 0;
-                execute_command(arg_list);
+                execute_command(arg_list, cmd_list[i]);
             }
             free(arg_list);
         }
         free(cmd_list);
     }
 }
+
