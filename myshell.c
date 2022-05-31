@@ -10,7 +10,7 @@ int num_arg; //num of argument
 int num_cmd;
 int MAX_BYTE = 513;
 char* exit_str = "exit\0";
-char* cd_str = "cd";
+char* cd_str = "cd\0";
 char* pwd_str = "pwd\0";
 int last_empty = 0; //prevent multple myshell>>
 
@@ -59,6 +59,10 @@ int empty_space(char* token) { //return 1 if the string is meaningless
 }
 
 char** create_cmd_list(char* cmd_buff) {
+    int all_empty = 1;
+    char original_cmds[514];
+    strcpy(original_cmds, cmd_buff); //方便print if not empty
+    //printf("cmd_list before is : %s\n", original_cmds);
     //separate command, create command list
     const char s[2] = ";";
     char* token; 
@@ -72,6 +76,7 @@ char** create_cmd_list(char* cmd_buff) {
             //printf("%s\n", token);
             continue; //jump directly to next loop
         }
+        all_empty = 0;
         //printf("token in cmd list separated by ; is %s\n", token);
         cmd_buffer[num_cmd] = token;
         num_cmd++;
@@ -83,6 +88,10 @@ char** create_cmd_list(char* cmd_buff) {
     }
     if (num_cmd == 0)
         last_empty = 1;
+    if (!all_empty) {
+        //printf("not all empty\n");
+        myPrint(original_cmds);
+    }
     return cmd_list;
 }
 
@@ -161,12 +170,10 @@ void execute_command(char** arg_list, char* a_cmd) { //execute a single command
         if (same_str(arg_list[0], pwd_str)) { //pwd
             char buff[PATH_MAX];
             getcwd(buff, sizeof(buff));
-            myPrint("pwd\n");
+            //myPrint("pwd\n");
             myPrint(buff);
             myPrint("\n");
         } else {
-            myPrint(a_cmd);
-            myPrint("\n");
             execvp(arg_list[0], arg_list);
         }
         exit(0);
@@ -227,16 +234,16 @@ int main(int argc, char *argv[])
             char** arg_list = create_arg_list(cmd_list[i]);
             //printf("first and second arg we got is %s %s\n", arg_list[0], arg_list[1]);
             if (same_str(arg_list[0], exit_str))  { //exit
-                myPrint("exit\n");
+                //myPrint("exit\n");
                 exit(0);
-            } else if (cd == handle_cd(arg_list, &path)) { //cd
+            } else if ( ( cd = handle_cd(arg_list, &path) ) ) { //cd
                 if (cd == 1) { //only a single cd, change to main
-                    myPrint("cd\n");
+                    //myPrint("cd\n");
                     chdir(getenv("HOME"));
                 } else {
-                    myPrint("cd ");
-                    myPrint(path);
-                    myPrint("\n");
+                    //myPrint("cd ");
+                    //myPrint(path);
+                    //myPrint("\n");
                     if (dir_x_exit(path)) { //check if directory exist;
                         rais_err();
                         continue;
