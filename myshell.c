@@ -5,6 +5,8 @@
 #include <ctype.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <dirent.h>
+#include <errno.h>
 
 int num_arg; //num of argument
 int num_cmd;
@@ -222,10 +224,13 @@ void execute_command(char** arg_list, char* a_cmd) { //execute a single command
 }
 
 int dir_x_exit(char* path) { //return 1 if a directory doesn't exist
-    struct stat s;
-    if (!stat(path, &s))
+    DIR* dir = opendir(path);
+    if (dir) {
+        closedir(dir);
         return 0;
-    return 1;
+    } else {
+        return 1;
+    }
 }
 
 
@@ -276,6 +281,7 @@ int main(int argc, char *argv[])
                 //myPrint("exit\n");
                 exit(0);
             } else if ( ( cd = handle_cd(arg_list, &path) ) ) { //cd
+                //printf("a cd command %d\n", cd);
                 if (cd == 1) { //only a single cd, change to main
                     //myPrint("cd\n");
                     chdir(getenv("HOME"));
