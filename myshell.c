@@ -95,6 +95,7 @@ char** create_cmd_list(char* cmd_buff) {
     return cmd_list;
 }
 
+
 char** create_arg_list(char* single_cmd) {
     //separate argument, create argument list for execvp
     num_arg = 0;
@@ -104,7 +105,6 @@ char** create_arg_list(char* single_cmd) {
     char* token;
     token = strtok(single_cmd, s);
     while (token != NULL) {
-        //printf("token in a single command is %s\n", token);
         if (empty_space(token)) {
             token = strtok(NULL, s);
             continue; //jump directly to next loop
@@ -112,6 +112,7 @@ char** create_arg_list(char* single_cmd) {
         if (token[strlen(token) - 1] == '\n') { //deal with newline character
             token[strlen(token) - 1] = '\0';
         }
+        //printf("token in a single command is %s\n", token);
         arg_buffer[num_arg] = token;
         num_arg++;
         token = strtok(NULL, s);
@@ -166,9 +167,9 @@ int handle_cd(char** arg_list, char** path) {
 //determine if is a valid redirection, return 0 if sth wrong, return 1 if is valid redirection, 2 if advanced redirection
 //arg will be altered if 1 and 2
 //sth wrong: 
-// int redirection_sign(char** arg_list) {
+//int redirection_sign(char** arg_list) {
 
-// }
+//}
 
 //return 1 if wrong format of built in: exit >xxx pwd etc.
 //will print err if wrong format
@@ -209,7 +210,8 @@ void execute_command(char** arg_list, char* a_cmd) { //execute a single command
             myPrint(buff);
             myPrint("\n");
         } else {
-            execvp(arg_list[0], arg_list);
+            if (execvp(arg_list[0], arg_list) == -1) 
+                rais_err();
         }
         exit(0);
     } else {
@@ -267,7 +269,7 @@ int main(int argc, char *argv[])
             char* path;
             //printf("cmd we got is %s\n", cmd_list[i]);
             char** arg_list = create_arg_list(cmd_list[i]);
-            //printf("first and second arg we got is %s %s\n", arg_list[0], arg_list[1]);
+            //printf("first and second arg we got is %s, %s\n", arg_list[0], arg_list[1]);
             if (same_str(arg_list[0], exit_str))  { //exit
                 if (wrong_builtin(arg_list))
                     continue;
