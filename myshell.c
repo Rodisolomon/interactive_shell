@@ -138,8 +138,10 @@ int same_str(char* str1, char* str2) {
             return 0;
         }
     }
-    if (!(strncmp((const char *)str1, (const char *)str2, sizeof(str1)))) //two string the same
+    if (!(strncmp((const char *)str1, (const char *)str2, sizeof(str1)))) {//two string the same 
+        //printf("%s\n", str1);
         return 1;
+    }
     return 0;
 }
 
@@ -161,14 +163,47 @@ int handle_cd(char** arg_list, char** path) {
     return 2; 
 }
 
+//determine if is a valid redirection, return 0 if sth wrong, return 1 if is valid redirection, 2 if advanced redirection
+//arg will be altered if 1 and 2
+//sth wrong: 
+// int redirection_sign(char** arg_list) {
+
+// }
+
+//return 1 if wrong format of built in: exit >xxx pwd etc.
+//will print err if wrong format
+int wrong_builtin(char** arg_list) { //flag == 1 if exit, flag == 2 if pwd
+    //printf("strlen of %s is %d\n", arg_list[0], strlen(arg_list[0]));
+    if (!strncmp(exit_str, arg_list[0], 4)) { //exit
+        //printf("oh this is definitely exit \n");
+        if((strlen(arg_list[0]) > 4) || (arg_list[1] != NULL)){
+            rais_err();
+            return 1;
+        }
+        return 0;
+    } else if (!strncmp(pwd_str, arg_list[0], 3)) { //pwd
+        //printf("oh this is definitely pwd \n");
+        if((strlen(arg_list[0]) > 3) || (arg_list[1] != NULL))  {
+            rais_err();
+            return 1;
+        }
+        return 0;
+    } else {
+        return 0;
+    }
+}
+
 void execute_command(char** arg_list, char* a_cmd) { //execute a single command
     pid_t pid;
     int status;
     pid = fork();
     if (pid == 0) { //child
+        if (wrong_builtin(arg_list))
+            exit(0);
         //printf("enter child process\n");
+        //int redir_sign = redirection_sign(arg_list);
         if (same_str(arg_list[0], pwd_str)) { //pwd
-            char buff[PATH_MAX];
+            char buff[PATH_MAX]; //two extra situation: pwd > xxx(this will be considered as pwd); pwd>xxx(this will go to execution)
             getcwd(buff, sizeof(buff));
             //myPrint("pwd\n");
             myPrint(buff);
@@ -234,6 +269,8 @@ int main(int argc, char *argv[])
             char** arg_list = create_arg_list(cmd_list[i]);
             //printf("first and second arg we got is %s %s\n", arg_list[0], arg_list[1]);
             if (same_str(arg_list[0], exit_str))  { //exit
+                if (wrong_builtin(arg_list))
+                    continue;
                 //myPrint("exit\n");
                 exit(0);
             } else if ( ( cd = handle_cd(arg_list, &path) ) ) { //cd
@@ -244,7 +281,7 @@ int main(int argc, char *argv[])
                     //myPrint("cd ");
                     //myPrint(path);
                     //myPrint("\n");
-                    if (dir_x_exit(path)) { //check if directory exist;
+                    if (dir_x_exit(path) || (arg_list[2] != NULL)) { //check if directory exist;
                         rais_err();
                         continue;
                     } else {
