@@ -363,8 +363,8 @@ int main(int argc, char *argv[])
 
             char** arg_list = create_arg_list(cmd_list[i]);
 
-            printf("cmd we got is %s\n", cmd_list[i]);
-            printf("first and second arg we got is %s, %s\n", arg_list[0], arg_list[1]);
+            //printf("cmd we got is %s\n", cmd_list[i]);
+            //printf("first and second arg we got is %s, %s\n", arg_list[0], arg_list[1]);
 
             if (same_str(arg_list[0], exit_str))  { //exit
                 if (wrong_builtin(arg_list))
