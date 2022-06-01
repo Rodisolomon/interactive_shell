@@ -357,7 +357,7 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
             close(new_fd);
             exit(0);
             } else { //super redirection
-                printf("super redirection!\n");
+                //printf("super redirection!\n");
                 mode_t mode = O_WRONLY | O_CREAT | O_APPEND;
                 char* temp_f = "temp_f";
                 int tem_fd = open(temp_f, mode, 0664);
@@ -365,14 +365,14 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
                     dup2(tem_fd, STDOUT_FILENO);
                     pid2 = fork();
                     if (pid2 == 0) { //child的child
-                        printf("enter child child process\n");
+                        //printf("enter child child process\n");
                         if (execvp(arg_list[0], arg_list) == -1) 
                             rais_err();   
                         exit(0);      
                     } else { //child的parent
                         waitpid(pid2, &status2, 0);
-                        printf("exit child child process\n");
-                        int old_fd = open(file, O_RDWR, 0664);
+                        //printf("exit child child process\n");
+                        int old_fd = open(file, O_RDWR | O_CREAT, 0664);
                         char tem_buf[2];
                         int num;
                         while ((num = read(old_fd, tem_buf, 2))) {
