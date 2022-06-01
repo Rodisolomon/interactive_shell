@@ -362,10 +362,10 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
                 char* temp_f = "temp_f";
                 int tem_fd = open(temp_f, mode, 0664);
                 if (tem_fd > 0) {
-                    printf("enter child child process\n");
                     dup2(tem_fd, STDOUT_FILENO);
                     pid2 = fork();
                     if (pid2 == 0) { //child的child
+                        printf("enter child child process\n");
                         if (execvp(arg_list[0], arg_list) == -1) 
                             rais_err();   
                         exit(0);      
