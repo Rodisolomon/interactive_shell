@@ -8,6 +8,8 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/wait.h>
+
 
 int num_arg; //num of argument
 int num_cmd;
@@ -230,7 +232,6 @@ int same_str(char* str1, char* str2) {
 }
 
 int handle_cd(char** arg_list, char** path) {
-    int i = 0;
     if (!same_str(arg_list[0], cd_str)) //not cd
         return 0;
 
@@ -275,17 +276,14 @@ int multiple_rdsign(char* cmd, char* checked_sign) { //return 1 if multiple sign
 }
 
 int multiple_rd(char* cmd) { // return 1 if eg. >> or >+>+
-    char* block1;
-    char* block2;
-    int num_block = 0;
-    char* block_buffer[520];
+    char* s;
     if (redirection_sign(cmd) == 2) {
-        const char s[2] = ">";
+        s = ">";
         if ( multiple_rdsign(cmd, s) )
             return 1;
         return 0;   
     } else if (redirection_sign(cmd) == 1) { //== 1
-        const char s[2] = ">";
+        s = ">";
         if ( multiple_rdsign(cmd, s) )
             return 1;
     } 
@@ -322,6 +320,7 @@ int wrong_builtin(char** arg_list) { //flag == 1 if exit, flag == 2 if pwd
     } else {
         return 0;
     }
+    return 0;
 }
 void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
     pid_t pid;
@@ -358,7 +357,6 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
             } else { //super redirection
                 //printf("super redirection!\n");
                 char* temp_f = "temp";
-                aaa++;
                 int tem_fd = open(temp_f, O_WRONLY | O_CREAT | O_APPEND, 0664);
                 if (tem_fd > 0) {
                     dup2(tem_fd, STDOUT_FILENO);
@@ -370,9 +368,9 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
                             rais_err();   
                         exit(0);      
                     } else { //child的parent
-                        //printf("waiting...\n");
+                        printf("waiting...\n");
                         waitpid(pid2, &status2, 0);
-                        //printf("exit child child process\n");
+                        printf("exit child child process\n");
                         FILE* check;
                         check = fopen(file, "r");
                         if (check) { //exist
@@ -382,15 +380,15 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
                             int num;
                             while ((num = read(old_fd, tem_buf, 2) != -1)) {
                                 write(STDOUT_FILENO, tem_buf, num);
-                                //printf("%d\n", num);
+                                printf("%d\n", num);
                             }
                             rename(temp_f, file);
-                            close(tem_fd);
                             close(old_fd);
                         } else {
                             rename(temp_f, file);
-                            close(tem_fd);
-                        }
+                        }   
+                        close(STDOUT_FILENO);
+                        close(tem_fd);
                     }
                     
                 } else{
@@ -435,14 +433,13 @@ void execute_command(char** arg_list, char* a_cm) { //execute a single command
 }
 
 int dir_x_exit(char* path) { //return 1 if a directory doesn't exist
-    DIR* dir = opendir(path);
-    if (dir) {
-        closedir(dir);
-        return 0;
-    } else if (same_str(path, ".")){
+    //printf("path is %s\n", path);
+    int result = access((const char *)path, F_OK);
+    //printf("result is %d\n", result);
+    if (result == -1) {
         return 1;
     } else {
-        return 1;
+        return 0;
     }
 }
 
@@ -463,7 +460,6 @@ int main(int argc, char *argv[])
     }
     
     char cmd_buff[MAX_BYTE + 1]; //initiate
-    char *pinput;
     while (1) {
         if (!batch_mode) 
             myPrint("myshell> ");
@@ -484,7 +480,11 @@ int main(int argc, char *argv[])
             char* path;
             char* arg;
             char* file;
-
+            char* str_cdd = "cd.\0";
+            if ( !( strncmp(str_cdd, cmd_list[i], strlen(str_cdd)) ) ) {
+                rais_err();
+                continue;
+            }
             ///handle redirection ////
             int rd_sign = redirection_sign(cmd_list[i]);
             //printf("rd_sign is %d\n", rd_sign);
