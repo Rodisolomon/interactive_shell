@@ -168,8 +168,33 @@ char** create_arg_list(char* single_cmd) {
     return arg_list;
 }
 
-char** preprocess_redirect() {
-    return 0;
+int preprocess_redirect(char* cmd, int which_sign) {
+    const char* s;
+    if (which_sign == 1) {
+        s = ">";
+    } else {
+        s = ">+";
+    }
+    char* block_buf[20];
+    char* block;
+    int num_block = 0;
+    block = strtok(cmd, s);
+    while (block != NULL) {
+        if (empty_space(block)) {
+            block = strtok(NULL, s);
+            continue; //jump directly to next loop
+        }
+        num_block++;
+        block = strtok(NULL, s);
+        if (block[strlen(block) - 1] == '\n') { //deal with newline character
+            block[strlen(block) - 1] = '\0';
+        }
+    }     
+    if (num_block != 2)
+        return 0;
+    return 1;
+
+
 }
 
 
@@ -357,8 +382,16 @@ int main(int argc, char *argv[])
 
             ///handle redirection ////
             int rd_sign = redirection_sign(cmd_list[i]);
-
-
+            if (rd_sign) { //possible redirection
+                if (multiple_rd(cmd_list[i])) {
+                    rais_err();
+                    continue;
+                }
+                if (! preprocess_redirect(cmd_list[i], rd_sign)) {
+                    rais_err();
+                    continue;
+                }
+            }
 
 
 
