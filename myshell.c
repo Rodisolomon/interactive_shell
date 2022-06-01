@@ -342,18 +342,20 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
         } else {
             if (rd_sign == 1) { //redirection
                 mode_t mode = O_RDWR | O_CREAT | O_EXCL;
-                int new_fd = open(file, mode, 0664); 
-                if (new_fd >= 0) {
+                int new_fd = open(file, O_WRONLY | O_CREAT | O_EXCL, 0664); 
+                if (new_fd > 0) {
                     dup2(new_fd, STDOUT_FILENO);
                     if (execvp(arg_list[0], arg_list) == -1) {
                         rais_err();
                     }
+                } else {
+                    rais_err();
                 }
             close(new_fd);
             exit(0);
             } else { //super redirection
                 exit(0);
-                mode_t mode = O_RDWR | O_CREAT | O_EXCL;
+                mode_t mode = O_WRONLY | O_CREAT | O_EXCL;
                 char* temp_f = "temp_f";
                 int tem_fd = open(temp_f, mode, 0664);
                 if (tem_fd >= 0) {
