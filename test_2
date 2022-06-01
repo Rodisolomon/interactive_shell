@@ -10,6 +10,7 @@ a >> c > b
 
 a >+ b
 a > b
+ls > wawa
 a > b c d
 
 

@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 
 int num_arg; //num of argument
 int num_cmd;
@@ -168,7 +169,8 @@ char** create_arg_list(char* single_cmd) {
     return arg_list;
 }
 
-int preprocess_redirect(char* cmd, int which_sign) {
+int preprocess_redirect(char* cmd, int which_sign, char** arg, char** file) {
+    //return 0 if sth wrong, lack of a&b in (a > b), also give back presumed argument and file
     const char* s;
     if (which_sign == 1) {
         s = ">";
@@ -184,19 +186,28 @@ int preprocess_redirect(char* cmd, int which_sign) {
             block = strtok(NULL, s);
             continue; //jump directly to next loop
         }
+        block_buf[num_block] = block; 
         num_block++;
-        block = strtok(NULL, s);
         if (block[strlen(block) - 1] == '\n') { //deal with newline character
             block[strlen(block) - 1] = '\0';
         }
+        block = strtok(NULL, s);
     }     
     if (num_block != 2)
         return 0;
+
+    *arg = block_buf[0];
+    *file = block_buf[1];
     return 1;
 
 
 }
-
+int multi_file(char* file) { //check file portion of redirection, if multiple return 0
+    char** file_ls = create_arg_list(file);
+    if (file_ls[1] != NULL)
+        return 0;
+    return 1;
+}
 
 //preprocessing with string
 //normally, return 1 if two string are the same, 0 if not
@@ -250,6 +261,7 @@ int redirection_sign(char* cmd) {//return 1 if >; 2 if >+; 0 if no
     }
 }
 
+//redirection不好的case
 int multiple_rdsign(char* cmd, char* checked_sign) { //return 1 if multiple signs
     int count = 0;
     const char *new = cmd;
@@ -262,8 +274,7 @@ int multiple_rdsign(char* cmd, char* checked_sign) { //return 1 if multiple sign
     return 0;
 }
 
-
-int multiple_rd(char* cmd) {
+int multiple_rd(char* cmd) { // return 1 if eg. >> or >+>+
     char* block1;
     char* block2;
     int num_block = 0;
@@ -305,8 +316,61 @@ int wrong_builtin(char** arg_list) { //flag == 1 if exit, flag == 2 if pwd
         return 0;
     }
 }
+void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
+    pid_t pid;
+    int status;
+    pid = fork();
+    if (pid == 0) { //child
+        if (wrong_builtin(arg_list))
+            exit(0);
+        //printf("enter child process\n");
+        //int redir_sign = redirection_sign(arg_list);
+        if (same_str(arg_list[0], pwd_str)) { //pwd
+            char buff[PATH_MAX]; //two extra situation: pwd > xxx(this will be considered as pwd); pwd>xxx(this will go to execution)
+            getcwd(buff, sizeof(buff));
+            //myPrint("pwd\n");
+            myPrint(buff);
+            myPrint("\n");
+        } else {
+            if (rd_sign == 1) { //redirection
+                mode_t mode = O_RDWR | O_CREAT | O_EXCL;
+                int new_fd = open(file, mode, 0664); 
+                if (new_fd >= 0) {
+                    dup2(new_fd, STDOUT_FILENO);
+                    if (execvp(arg_list[0], arg_list) == -1) 
+                        rais_err();
+                } else{
+                    rais_err();
+                    exit(0);
+                }
+            close(new_fd);
+            exit(0);
+            } else { //super redirection
+                exit(0);
+                mode_t mode = O_RDWR | O_CREAT | O_EXCL;
+                char* temp_f = "temp_f";
+                int tem_fd = open(temp_f, mode, 0664);
+                if (tem_fd >= 0) {
+                    dup2(tem_fd, STDOUT_FILENO);
+                    if (execvp(arg_list[0], arg_list) == -1) 
+                        rais_err();
+                    
+                } else{
+                    rais_err();
+                    exit(0);
+                }                
 
-void execute_command(char** arg_list, char* a_cmd) { //execute a single command
+            }
+        }
+        exit(0);
+    } else {
+        waitpid(pid, &status, 0);
+        //printf("Child exited\n");
+    }
+    return;
+}
+
+void execute_command(char** arg_list, char* a_cm) { //execute a single command
     pid_t pid;
     int status;
     pid = fork();
@@ -379,6 +443,8 @@ int main(int argc, char *argv[])
         for (int i = 0; i < num_cmd; i++) {
             int cd;
             char* path;
+            char* arg;
+            char* file;
 
             ///handle redirection ////
             int rd_sign = redirection_sign(cmd_list[i]);
@@ -387,7 +453,11 @@ int main(int argc, char *argv[])
                     rais_err();
                     continue;
                 }
-                if (! preprocess_redirect(cmd_list[i], rd_sign)) {
+                if (! preprocess_redirect(cmd_list[i], rd_sign, &arg, &file)) {
+                    rais_err();
+                    continue;
+                }
+                if (multi_file(file)) {
                     rais_err();
                     continue;
                 }
@@ -397,7 +467,7 @@ int main(int argc, char *argv[])
 
 
             char** arg_list = create_arg_list(cmd_list[i]);
-
+            char** rd_arg_list = create_arg_list(arg);
             //printf("cmd we got is %s\n", cmd_list[i]);
             //printf("first and second arg we got is %s, %s\n", arg_list[0], arg_list[1]);
 
@@ -424,7 +494,11 @@ int main(int argc, char *argv[])
                 }
             } else { //normal command
                 last_empty = 0;
-                execute_command(arg_list, cmd_list[i]);
+                if (!rd_sign) {//rd = 0
+                    execute_command(arg_list, cmd_list[i]);
+                } else {
+                    execute_rd_command(rd_arg_list, cmd_list[i], file, rd_sign);
+                }
             }
             free(arg_list);
         }
