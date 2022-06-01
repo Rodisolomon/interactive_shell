@@ -448,6 +448,7 @@ int main(int argc, char *argv[])
 
             ///handle redirection ////
             int rd_sign = redirection_sign(cmd_list[i]);
+            //printf("rd_sign is %d\n", rd_sign);
             if (rd_sign) { //possible redirection
                 if (multiple_rd(cmd_list[i])) {
                     rais_err();
@@ -461,13 +462,13 @@ int main(int argc, char *argv[])
                     rais_err();
                     continue;
                 }
+                char** rd_arg_list = create_arg_list(arg);
             }
 
 
 
 
             char** arg_list = create_arg_list(cmd_list[i]);
-            char** rd_arg_list = create_arg_list(arg);
             //printf("cmd we got is %s\n", cmd_list[i]);
             //printf("first and second arg we got is %s, %s\n", arg_list[0], arg_list[1]);
 
@@ -495,9 +496,10 @@ int main(int argc, char *argv[])
             } else { //normal command
                 last_empty = 0;
                 if (!rd_sign) {//rd = 0
+                    printf("not rd!\n");
                     execute_command(arg_list, cmd_list[i]);
                 } else {
-                    execute_rd_command(rd_arg_list, cmd_list[i], file, rd_sign);
+                    //execute_rd_command(rd_arg_list, cmd_list[i], file, rd_sign);
                 }
             }
             free(arg_list);
