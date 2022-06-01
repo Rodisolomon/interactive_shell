@@ -18,7 +18,7 @@ char* pwd_str = "pwd\0";
 char* rd_sign = ">";
 char* advrd_sign = ">+";
 int last_empty = 0; //prevent multple myshell>>
-
+int aaa = 0;
 
 
 void myPrint(char *msg)
@@ -344,7 +344,6 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
             exit(0);
         } else {
             if (rd_sign == 1) { //redirection
-                mode_t mode = O_RDWR | O_CREAT | O_EXCL;
                 int new_fd = open(file, O_WRONLY | O_CREAT | O_EXCL, 0664); 
                 if (new_fd > 0) {
                     dup2(new_fd, STDOUT_FILENO);
@@ -358,29 +357,40 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
             exit(0);
             } else { //super redirection
                 //printf("super redirection!\n");
-                mode_t mode = O_WRONLY | O_CREAT | O_APPEND;
-                char* temp_f = "temp_f";
-                int tem_fd = open(temp_f, mode, 0664);
+                char* temp_f = "temp";
+                aaa++;
+                int tem_fd = open(temp_f, O_WRONLY | O_CREAT | O_APPEND, 0664);
                 if (tem_fd > 0) {
                     dup2(tem_fd, STDOUT_FILENO);
                     pid2 = fork();
+                    printf("fork!\n");
                     if (pid2 == 0) { //child的child
-                        //printf("enter child child process\n");
+                        printf("enter child child process\n");
                         if (execvp(arg_list[0], arg_list) == -1) 
                             rais_err();   
                         exit(0);      
                     } else { //child的parent
+                        //printf("waiting...\n");
                         waitpid(pid2, &status2, 0);
                         //printf("exit child child process\n");
-                        int old_fd = open(file, O_RDWR | O_CREAT, 0664);
-                        char tem_buf[2];
-                        int num;
-                        while ((num = read(old_fd, tem_buf, 2))) {
-                            write(STDOUT_FILENO, tem_buf, num);
+                        FILE* check;
+                        check = fopen(file, "r");
+                        if (check) { //exist
+                            fclose(check);
+                            int old_fd = open(file, O_RDONLY , 0664);
+                            char tem_buf[2];
+                            int num;
+                            while ((num = read(old_fd, tem_buf, 2) != -1)) {
+                                write(STDOUT_FILENO, tem_buf, num);
+                                //printf("%d\n", num);
+                            }
+                            rename(temp_f, file);
+                            close(tem_fd);
+                            close(old_fd);
+                        } else {
+                            rename(temp_f, file);
+                            close(tem_fd);
                         }
-                        rename("temp_f", file);
-                        close(tem_fd);
-                        close(old_fd);
                     }
                     
                 } else{
@@ -429,6 +439,8 @@ int dir_x_exit(char* path) { //return 1 if a directory doesn't exist
     if (dir) {
         closedir(dir);
         return 0;
+    } else if (same_str(path, ".")){
+        return 1;
     } else {
         return 1;
     }
