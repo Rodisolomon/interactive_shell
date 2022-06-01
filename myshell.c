@@ -280,7 +280,7 @@ int multiple_rd(char* cmd) { // return 1 if eg. >> or >+>+
     int num_block = 0;
     char* block_buffer[520];
     if (redirection_sign(cmd) == 2) {
-        const char s[2] = ">+";
+        const char s[2] = ">";
         if ( multiple_rdsign(cmd, s) )
             return 1;
         return 0;   
@@ -325,6 +325,8 @@ int wrong_builtin(char** arg_list) { //flag == 1 if exit, flag == 2 if pwd
 }
 void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
     pid_t pid;
+    pid_t pid2;
+    int status2;
     int status;
     pid = fork();
     file = trimwhitespace(file);
@@ -355,14 +357,27 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
             close(new_fd);
             exit(0);
             } else { //super redirection
-                exit(0);
-                mode_t mode = O_WRONLY | O_CREAT | O_EXCL;
+                printf("super redirection!\n");
+                mode_t mode = O_WRONLY | O_CREAT | O_APPEND;
                 char* temp_f = "temp_f";
                 int tem_fd = open(temp_f, mode, 0664);
-                if (tem_fd >= 0) {
+                if (tem_fd > 0) {
                     dup2(tem_fd, STDOUT_FILENO);
-                    if (execvp(arg_list[0], arg_list) == -1) 
-                        rais_err();
+                    pid2 = fork();
+                    if (pid2 == 0) { //child的child
+                        if (execvp(arg_list[0], arg_list) == -1) 
+                            rais_err();         
+                    } else { //child的parent
+                        waitpid(pid2, &status2, 0);
+                        int old_fd = open(file, O_RDWR, 0664);
+                        char tem_buf[2];
+                        int num;
+                        while ((num = read(old_fd, tem_buf, 2))) {
+                            write(STDOUT_FILENO, tem_buf, num);
+                        }
+                        rename("temp_f", file);
+                        close(tem_fd);
+                    }
                     
                 } else{
                     rais_err();
