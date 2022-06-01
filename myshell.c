@@ -327,6 +327,7 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
     pid_t pid;
     int status;
     pid = fork();
+    file = trimwhitespace(file);
     if (pid == 0) { //child
         if (wrong_builtin(arg_list))
             exit(0);
