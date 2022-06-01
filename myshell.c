@@ -380,7 +380,7 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
                         }
                         rename("temp_f", file);
                         close(tem_fd);
-                        close(file);
+                        close(old_fd);
                     }
                     
                 } else{
