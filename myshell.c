@@ -348,9 +348,6 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
                     if (execvp(arg_list[0], arg_list) == -1) {
                         rais_err();
                     }
-                } else {
-                    rais_err();
-                    exit(0);
                 }
             close(new_fd);
             exit(0);
