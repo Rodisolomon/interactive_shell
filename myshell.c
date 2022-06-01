@@ -63,12 +63,14 @@ int empty_space(char* token) { //return 1 if the string is meaningless
 }
 
 char** create_cmd_list(char* cmd_buff) {
-    int all_empty = 1;
+    int all_empty;
     char original_cmds[514];
     strcpy(original_cmds, cmd_buff); //方便print if not empty
     //printf("cmd_list before is : %s\n", original_cmds);
     //separate command, create command list
     const char s[2] = ";";
+    if (strstr(cmd_buff, s) == NULL)
+        all_empty = 1;
     char* token; 
     num_cmd = 0;
     char* cmd_buffer[520];
@@ -124,7 +126,7 @@ char* remove_white_space(char* single_cmd) {
     while(isspace((char)*single_cmd)) {
         single_cmd++;
     }
-    if (*single_cmd == 0)
+    if (!(*single_cmd))
         return single_cmd;
     char* end;
     end = single_cmd - 1 + strlen(single_cmd);
@@ -226,7 +228,7 @@ int redirection_sign(char* cmd) {//return 1 if >; 2 if >+; 0 if no
 int multiple_rdsign(char* cmd, char* checked_sign) { //return 1 if multiple signs
     int count = 0;
     const char *new = cmd;
-    while(new = strstr(new, (const char*)checked_sign)) {
+    while( (new = strstr(new, (const char*)checked_sign)) ){
         count++;
         new++;
     }
