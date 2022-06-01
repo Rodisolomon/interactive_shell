@@ -205,8 +205,8 @@ int preprocess_redirect(char* cmd, int which_sign, char** arg, char** file) {
 int multi_file(char* file) { //check file portion of redirection, if multiple return 0
     char** file_ls = create_arg_list(file);
     if (file_ls[1] != NULL)
-        return 0;
-    return 1;
+        return 1;
+    return 0;
 }
 
 //preprocessing with string
