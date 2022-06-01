@@ -386,7 +386,6 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
 
             }
         }
-        exit(0);
     } else {
         waitpid(pid, &status, 0);
         //printf("Child exited\n");
