@@ -300,6 +300,7 @@ int wrong_builtin(char** arg_list) { //flag == 1 if exit, flag == 2 if pwd
     //printf("strlen of %s is %d\n", arg_list[0], strlen(arg_list[0]));
     if (!strncmp(exit_str, arg_list[0], 4)) { //exit
         //printf("oh this is definitely exit \n");
+        //printf("%s\n", arg_list[1]);
         if((strlen(arg_list[0]) > 4) || (arg_list[1] != NULL)){
             rais_err();
             return 1;
@@ -312,6 +313,12 @@ int wrong_builtin(char** arg_list) { //flag == 1 if exit, flag == 2 if pwd
             return 1;
         }
         return 0;
+    } else if (!strncmp(cd_str, arg_list[0], 2)) { //cd
+        //printf("oh this is definitely pwd \n");
+        if((strlen(arg_list[0]) > 2) || (arg_list[1] != NULL))  {
+            rais_err();
+            return 1;
+        }
     } else {
         return 0;
     }
@@ -325,21 +332,23 @@ void execute_rd_command(char** arg_list, char* a_cmd, char* file, int rd_sign) {
             exit(0);
         //printf("enter child process\n");
         //int redir_sign = redirection_sign(arg_list);
-        if (same_str(arg_list[0], pwd_str)) { //pwd
-            char buff[PATH_MAX]; //two extra situation: pwd > xxx(this will be considered as pwd); pwd>xxx(this will go to execution)
-            getcwd(buff, sizeof(buff));
-            //myPrint("pwd\n");
-            myPrint(buff);
-            myPrint("\n");
+        //printf("   arg_list[0]   is %s\n", arg_list[0]);
+        if (same_str(pwd_str, arg_list[0])) { //pwd
+            rais_err();
+            exit(0);
+        } else if (same_str(cd_str, arg_list[0]) || same_str(exit_str, arg_list[0])){
+            rais_err();
+            exit(0);
         } else {
             if (rd_sign == 1) { //redirection
                 mode_t mode = O_RDWR | O_CREAT | O_EXCL;
                 int new_fd = open(file, mode, 0664); 
                 if (new_fd >= 0) {
                     dup2(new_fd, STDOUT_FILENO);
-                    if (execvp(arg_list[0], arg_list) == -1) 
+                    if (execvp(arg_list[0], arg_list) == -1) {
                         rais_err();
-                } else{
+                    }
+                } else {
                     rais_err();
                     exit(0);
                 }
@@ -438,7 +447,7 @@ int main(int argc, char *argv[])
             last_empty = 1;
             continue;
         }
-
+        char** rd_arg_list;
         char** cmd_list = create_cmd_list(cmd_buff);
         for (int i = 0; i < num_cmd; i++) {
             int cd;
@@ -450,6 +459,7 @@ int main(int argc, char *argv[])
             int rd_sign = redirection_sign(cmd_list[i]);
             //printf("rd_sign is %d\n", rd_sign);
             if (rd_sign) { //possible redirection
+                //printf("this is rd!!\n");
                 if (multiple_rd(cmd_list[i])) {
                     rais_err();
                     continue;
@@ -462,7 +472,7 @@ int main(int argc, char *argv[])
                     rais_err();
                     continue;
                 }
-                char** rd_arg_list = create_arg_list(arg);
+                rd_arg_list = create_arg_list(arg);
             }
 
 
@@ -472,14 +482,22 @@ int main(int argc, char *argv[])
             //printf("cmd we got is %s\n", cmd_list[i]);
             //printf("first and second arg we got is %s, %s\n", arg_list[0], arg_list[1]);
 
-            if (same_str(arg_list[0], exit_str))  { //exit
+            if (same_str(exit_str, arg_list[0]))  { //exit
                 if (wrong_builtin(arg_list))
                     continue;
+                if (rd_sign == 1) {
+                    rais_err();
+                    continue;
+                }
+
                 //myPrint("exit\n");
                 exit(0);
             } else if ( ( cd = handle_cd(arg_list, &path) ) ) { //cd
                 //printf("a cd command %d\n", cd);
-                if (cd == 1) { //only a single cd, change to main
+                if (rd_sign) {
+                    rais_err();
+                    continue;
+                } else if (cd == 1) { //only a single cd, change to main
                     //myPrint("cd\n");
                     chdir(getenv("HOME"));
                 } else {
@@ -499,7 +517,8 @@ int main(int argc, char *argv[])
                     //printf("not rd!\n");
                     execute_command(arg_list, cmd_list[i]);
                 } else {
-                    //execute_rd_command(rd_arg_list, cmd_list[i], file, rd_sign);
+                    //printf("rd!\n");
+                    execute_rd_command(rd_arg_list, cmd_list[i], file, rd_sign);
                 }
             }
             free(arg_list);
