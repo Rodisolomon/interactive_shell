@@ -496,7 +496,7 @@ int main(int argc, char *argv[])
             } else { //normal command
                 last_empty = 0;
                 if (!rd_sign) {//rd = 0
-                    printf("not rd!\n");
+                    //printf("not rd!\n");
                     execute_command(arg_list, cmd_list[i]);
                 } else {
                     //execute_rd_command(rd_arg_list, cmd_list[i], file, rd_sign);
