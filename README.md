@@ -7,7 +7,6 @@ Refer to this link: https://people.cs.uchicago.edu/~castuardo/cs-154/p4/p4shell.
 Design:
 
 1. Core Shell Loop:
-
 The shell operates in an interactive loop that continually prompts the user for input. Each iteration of the loop represents a lifecycle of processing a command.
 The prompt used is "myshell> ", aligning with traditional Unix shell standards.
 
